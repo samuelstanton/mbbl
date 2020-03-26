@@ -109,7 +109,7 @@ class env(base_env_wrapper.base_env):
                 'gym_swimmer': 'Swimmer-v1',
                 'gym_ant': 'Ant-v1',
             }
-        elif self._current_version == NotImplementedError:
+        elif self._current_version in ["0.17.1"]:
             # TODO: other gym versions here
             _env_name = {
                 'gym_cheetah': 'HalfCheetah-v2',
@@ -155,12 +155,15 @@ class env(base_env_wrapper.base_env):
             if self._current_version in ['0.7.4', '0.9.4']:
                 self._env.env.data.qpos = qpos.reshape([-1, 1])
                 self._env.env.data.qvel = qvel.reshape([-1, 1])
+                self._env.env.model._compute_subtree()
+                self._env.env.model.forward()
             else:
-                self._env.env.sim.data.qpos = qpos.reshape([-1])
-                self._env.env.sim.data.qvel = qpos.reshape([-1])
+                self._env.env.sim.data.qpos[:] = qpos.reshape([-1])
+                self._env.env.sim.data.qvel[:] = qpos.reshape([-1])
+                self._env.env.sim.forward()
 
-            self._env.env.model._compute_subtree()  # pylint: disable=W0212
-            self._env.env.model.forward()
+            # self._env.env.model._compute_subtree()  # pylint: disable=W0212
+            # self._env.env.model.forward()
             self._old_ob = self._get_observation()
 
         self.set_state = set_state
@@ -221,7 +224,8 @@ class env(base_env_wrapper.base_env):
                     -height_coeff * (agent_height - target_height) ** 2
 
             # the control reward
-            reward_control = - ctrl_coeff * np.square(data_dict['action']).sum()
+            reward_control = - ctrl_coeff * \
+                np.square(data_dict['action']).sum()
 
             return reward_velocity + reward_height + reward_control + \
                 alive_bonus
@@ -229,10 +233,12 @@ class env(base_env_wrapper.base_env):
 
         def reward_tf(data_dict):
              # the speed reward
-            reward_velocity = data_dict['start_state'][velocity_ob_pos] if data_dict['start_state'] is not None else tf.constant(0, dtype=tf.float32)
+            reward_velocity = data_dict['start_state'][velocity_ob_pos] if data_dict[
+                'start_state'] is not None else tf.constant(0, dtype=tf.float32)
 
             # the height reward
-            agent_height = data_dict['start_state'][height_ob_pos] if data_dict['start_state'] is not None else tf.constant(0, dtype=tf.float32)
+            agent_height = data_dict['start_state'][height_ob_pos] if data_dict[
+                'start_state'] is not None else tf.constant(0, dtype=tf.float32)
 
             if self._use_pets_reward:
                 reward_height = tf.convert_to_tensor(
@@ -244,7 +250,8 @@ class env(base_env_wrapper.base_env):
                     -height_coeff * (agent_height - target_height) ** 2, dtype=tf.float32)
 
             # the control reward
-            reward_control = - ctrl_coeff * tf.reduce_sum(tf.square(data_dict['action']))
+            reward_control = - ctrl_coeff * \
+                tf.reduce_sum(tf.square(data_dict['action']))
 
             return reward_velocity + reward_height + reward_control + \
                 alive_bonus
@@ -262,7 +269,8 @@ class env(base_env_wrapper.base_env):
 
                 # the height reward part
                 derivative_data[:, height_ob_pos] += - 2.0 * height_coeff * \
-                    (data_dict['start_state'][:, height_ob_pos] - target_height)
+                    (data_dict['start_state'][
+                     :, height_ob_pos] - target_height)
 
             elif target == 'action':
                 derivative_data = np.zeros(
